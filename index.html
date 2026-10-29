@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YnShop - Skincare & Cosmetic Catalog</title>
+  <meta name="description" content="Katalog skincare dan kosmetik original dengan harga terbaik. Pesan mudah lewat WhatsApp.">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/assets/js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-sm border-b border-pink-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <div class="relative bg-pink-50 p-2 rounded-2xl border-2 border-pink-200">
+          <span class="font-heading text-2xl font-bold text-brand-pink tracking-wide flex items-center gap-1">
+            Yn<span class="text-brand-yellow drop-shadow-[0_1.2px_1.2px_rgba(225,42,94,0.8)]"><i class="fa-solid fa-heart"></i></span>Shop
+          </span>
+          <span class="block text-[9px] uppercase tracking-widest text-center font-bold text-brand-pink -mt-1">Skincare & Cosmetic</span>
+        </div>
+      </a>
+
+      <button id="btnContact" class="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-semibold text-xs sm:text-sm px-4 py-2.5 rounded-full transition shadow-sm">
+        <i class="fa-brands fa-whatsapp text-lg"></i>
+        <span>Hubungi Toko</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="bg-gradient-to-r from-pink-500 via-brand-pink to-pink-600 text-white py-8 px-4 shadow-inner">
+    <div class="max-w-7xl mx-auto text-center">
+      <h1 class="font-heading text-3xl sm:text-4xl md:text-5xl font-bold mb-2">Katalog Produk Beauty & Skincare</h1>
+      <p class="text-pink-100 text-sm sm:text-base max-w-xl mx-auto font-light">Temukan berbagai pilihan skincare dan kosmetik original favoritmu dengan harga terbaik!</p>
+    </div>
+  </section>
+
+  <!-- KATALOG -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full space-y-6">
+
+    <!-- Pencarian & filter brand -->
+    <div class="bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-pink-100 space-y-4">
+      <div class="relative max-w-md mx-auto sm:mx-0">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-pink-400"></i>
+        <input type="search" id="searchInput" placeholder="Cari nama produk, brand, atau deskripsi..."
+          class="w-full pl-11 pr-4 py-3 rounded-full border border-pink-200 focus:outline-none focus:ring-2 focus:ring-brand-pink text-sm bg-pink-50/30">
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Pilih Brand:</p>
+        <div id="brandFilterContainer" class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none"></div>
+      </div>
+    </div>
+
+    <!-- Grid produk -->
+    <div>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-heading text-xl font-bold text-gray-800" id="catalogTitle">Semua Produk</h2>
+        <span class="text-xs text-gray-500" id="productCount"></span>
+      </div>
+
+      <div id="productGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6"></div>
+
+      <div id="emptyState" class="hidden text-center py-16 bg-white rounded-3xl border border-pink-100 p-8">
+        <i class="fa-solid fa-heart-crack text-5xl text-pink-300 mb-3"></i>
+        <h3 class="font-heading text-lg font-bold text-gray-700 mb-1">Produk Tidak Ditemukan</h3>
+        <p class="text-sm text-gray-500">Coba kata kunci lain atau pilih brand yang berbeda.</p>
+      </div>
+
+      <div id="errorState" class="hidden text-center py-16 bg-white rounded-3xl border border-red-100 p-8">
+        <i class="fa-solid fa-triangle-exclamation text-5xl text-red-300 mb-3"></i>
+        <h3 class="font-heading text-lg font-bold text-gray-700 mb-1">Katalog belum bisa dimuat</h3>
+        <p id="errorMsg" class="text-sm text-gray-500">Silakan coba lagi beberapa saat.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-pink-100 py-6 mt-12">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+      <p class="font-heading text-lg font-bold text-brand-pink mb-1">YnShop</p>
+      <p class="text-xs text-gray-500 mb-3">Katalog Resmi Skincare & Cosmetic Original</p>
+      <p class="text-[11px] text-gray-400">&copy; <span id="year"></span> YnShop. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- MODAL DETAIL PRODUK -->
+  <div id="productDetailModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-pink-100 p-5 sm:p-6 relative animate-fade-in">
+      <button id="btnCloseDetail" aria-label="Tutup" class="absolute top-4 right-4 w-9 h-9 bg-gray-100 hover:bg-pink-100 text-gray-600 hover:text-brand-pink rounded-full flex items-center justify-center transition z-10">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+        <div>
+          <div class="relative aspect-square rounded-2xl overflow-hidden bg-pink-50 border border-pink-100 mb-3">
+            <img id="detailMainImg" src="" alt="" class="w-full h-full object-cover">
+            <div id="detailStockBadge" class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow"></div>
+          </div>
+          <div class="space-y-1">
+            <p class="text-[11px] font-semibold text-gray-500 uppercase">Pilih Varian / Gambar:</p>
+            <div id="detailVariantThumbnails" class="flex gap-2 overflow-x-auto pb-2 scrollbar-none"></div>
+          </div>
+        </div>
+
+        <div class="flex flex-col justify-between">
+          <div>
+            <span id="detailBrand" class="inline-block px-3 py-1 bg-pink-100 text-brand-pink text-xs font-bold rounded-full mb-2"></span>
+            <h3 id="detailTitle" class="font-heading text-xl sm:text-2xl font-bold text-gray-800 leading-tight mb-2 pr-8"></h3>
+            <div id="detailPromo" class="hidden flex items-center gap-2 mb-0.5">
+              <span id="detailOriginalPrice" class="text-sm text-gray-400 line-through"></span>
+              <span id="detailDiscount" class="text-[11px] font-extrabold bg-brand-yellow text-brand-dark px-2 py-0.5 rounded-full"></span>
+            </div>
+            <p id="detailPrice" class="text-2xl font-extrabold text-brand-pink mb-4"></p>
+
+            <div class="border-t border-gray-100 pt-3 mb-4">
+              <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Deskripsi Produk:</h4>
+              <p id="detailDescription" class="text-xs sm:text-sm text-gray-600 leading-relaxed whitespace-pre-line max-h-40 overflow-y-auto pr-1"></p>
+            </div>
+
+            <div class="bg-pink-50/60 p-3 rounded-xl border border-pink-100 mb-4">
+              <span class="text-xs text-gray-500">Varian Dipilih:</span>
+              <span id="selectedVariantText" class="text-xs font-bold text-brand-pink ml-1">Utama</span>
+            </div>
+          </div>
+
+          <div class="space-y-2 pt-2 border-t border-gray-100">
+            <button id="btnOrder" class="w-full bg-brand-pink hover:bg-brand-pinkHover active:scale-[0.99] text-white font-bold py-3.5 px-4 rounded-2xl transition shadow-lg shadow-pink-200 flex items-center justify-center gap-2">
+              <i class="fa-brands fa-whatsapp text-xl"></i>
+              <span id="btnOrderText">Pesan Sekarang Via WA</span>
+            </button>
+            <button id="btnDownload" class="w-full bg-gray-100 hover:bg-pink-100 text-gray-700 hover:text-brand-pink font-semibold py-2.5 px-4 rounded-2xl transition flex items-center justify-center gap-2 text-xs">
+              <i class="fa-solid fa-download"></i>
+              <span>Download Gambar Produk</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/assets/js/catalog.js"></script>
+</body>
+</html>

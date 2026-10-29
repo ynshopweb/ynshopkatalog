@@ -1,0 +1,25 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Daftar email admin. GANTI dengan email akun admin yang kamu buat
+    // di Firebase Authentication.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in ['GANTI_DENGAN_EMAIL_ADMIN@gmail.com'];
+    }
+
+    // Produk: semua orang boleh melihat, hanya admin yang boleh mengubah
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Pengaturan toko (nomor WA, daftar brand)
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
