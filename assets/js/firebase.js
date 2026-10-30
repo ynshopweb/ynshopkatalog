@@ -9,12 +9,13 @@ import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.14.1/firebas
 import { getAuth } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 
 export const firebaseConfig = {
-  apiKey: 'GANTI_API_KEY',
-  authDomain: 'GANTI_PROJECT_ID.firebaseapp.com',
-  projectId: 'GANTI_PROJECT_ID',
-  storageBucket: 'GANTI_PROJECT_ID.appspot.com',
-  messagingSenderId: 'GANTI_SENDER_ID',
-  appId: 'GANTI_APP_ID',
+  apiKey: 'AIzaSyBxPx0_n0tkt5l90-fStwyDKWaLRrPpKIs',
+  authDomain: 'katalogynshop.firebaseapp.com',
+  projectId: 'katalogynshop',
+  storageBucket: 'katalogynshop.firebasestorage.app',
+  messagingSenderId: '84025262597',
+  appId: '1:84025262597:web:2b2f4474ad31fd26fe126c',
+  measurementId: 'G-DBTHR4JMNW',
 };
 
 export const isFirebaseConfigured = !firebaseConfig.apiKey.startsWith('GANTI');
