@@ -78,6 +78,9 @@
             <p id="adminUserEmail" class="text-xs text-gray-500"></p>
           </div>
           <div class="flex flex-wrap gap-2">
+            <button id="btnBrands" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+              <i class="fa-solid fa-tags"></i> Kelola Brand
+            </button>
             <button id="btnSettings" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2">
               <i class="fa-solid fa-gear"></i> No. WA Toko
             </button>
@@ -183,6 +186,33 @@
           <button type="submit" id="btnSaveProduct" class="px-5 py-2 rounded-xl bg-brand-pink hover:bg-brand-pinkHover text-white font-bold shadow-md disabled:opacity-60">Simpan Produk</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ========== MODAL KELOLA BRAND ========== -->
+  <div id="brandModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-start justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-pink-100 p-6 relative my-8 animate-fade-in">
+      <button type="button" id="btnCloseBrands" aria-label="Tutup" class="absolute top-4 right-4 w-8 h-8 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 class="font-heading text-xl font-bold text-brand-pink mb-4">Kelola Brand</h3>
+
+      <div class="space-y-2 text-xs sm:text-sm">
+        <label for="brandBulkInput" class="block font-semibold text-gray-700">Tambah Brand (banyak sekaligus)</label>
+        <textarea id="brandBulkInput" rows="5" placeholder="Satu brand per baris, contoh:&#10;Wardah&#10;Somethinc&#10;Azarine&#10;Scarlett Whitening" class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none"></textarea>
+        <p class="text-[11px] text-gray-400">Bisa juga dipisah koma. Brand yang sudah ada otomatis dilewati.</p>
+        <button type="button" id="btnAddBrands" class="w-full py-2.5 rounded-xl bg-brand-pink text-white font-bold shadow-md hover:bg-brand-pinkHover transition">Tambahkan Brand</button>
+      </div>
+
+      <div class="mt-6 border-t border-gray-100 pt-4">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider">Daftar Brand</h4>
+          <span id="brandTotal" class="text-[11px] text-gray-400"></span>
+        </div>
+        <ul id="brandList" class="space-y-1.5 max-h-64 overflow-y-auto pr-1"></ul>
+        <p class="text-[11px] text-gray-400 mt-2">Brand yang masih punya produk tidak bisa dihapus. Pindahkan atau hapus produknya dulu.</p>
+      </div>
     </div>
   </div>
 

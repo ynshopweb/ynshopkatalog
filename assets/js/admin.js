@@ -97,6 +97,7 @@ function startListening() {
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
         renderTable();
+        renderBrandList();
       },
       (err) => showToast(friendlyError(err), 'error')
     ),
@@ -104,6 +105,7 @@ function startListening() {
       const data = snap.exists() ? snap.data() : {};
       state.whatsapp = data.whatsappNumber || DEFAULT_WA;
       state.settingsBrands = Array.isArray(data.brands) ? data.brands : [];
+      renderBrandList();
     })
   );
 }
@@ -334,6 +336,97 @@ async function saveSettings(e) {
   }
 }
 
+// ---------- Kelola brand ----------
+function parseBrandNames(text) {
+  return text
+    .split(/[\n,;]+/)
+    .map((s) => s.trim().replace(/\s+/g, ' '))
+    .filter(Boolean);
+}
+
+function renderBrandList() {
+  const list = $('brandList');
+  if (!list) return;
+
+  const brands = mergeBrands(state.settingsBrands, state.products);
+  const counts = new Map();
+  state.products.forEach((p) => {
+    const key = String(p.brand || '').toLowerCase();
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  $('brandTotal').textContent = `${brands.length} brand`;
+
+  if (!brands.length) {
+    list.innerHTML = '<li class="text-xs text-gray-400 py-2">Belum ada brand.</li>';
+    return;
+  }
+
+  list.innerHTML = brands.map((b) => {
+    const n = counts.get(b.toLowerCase()) || 0;
+    return `
+      <li class="flex items-center justify-between gap-2 bg-pink-50/50 border border-pink-100 rounded-xl px-3 py-2">
+        <span class="text-xs font-semibold text-gray-800 truncate">${escapeHtml(b)}</span>
+        <span class="flex items-center gap-2 flex-shrink-0">
+          <span class="text-[11px] text-gray-400">${n} produk</span>
+          ${n === 0
+            ? `<button data-brand="${escapeHtml(b)}" class="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition" title="Hapus brand"><i class="fa-solid fa-trash text-xs"></i></button>`
+            : ''}
+        </span>
+      </li>`;
+  }).join('');
+}
+
+async function addBrands() {
+  const names = parseBrandNames($('brandBulkInput').value);
+  if (!names.length) return showToast('Tulis minimal satu nama brand.', 'error');
+
+  const existing = new Set(mergeBrands(state.settingsBrands, state.products).map((b) => b.toLowerCase()));
+  const fresh = [];
+  names.forEach((n) => {
+    const key = n.toLowerCase();
+    if (!existing.has(key)) {
+      existing.add(key);
+      fresh.push(n);
+    }
+  });
+  const skipped = names.length - fresh.length;
+
+  if (!fresh.length) return showToast('Semua brand tersebut sudah ada.', 'error');
+
+  const btn = $('btnAddBrands');
+  btn.disabled = true;
+  try {
+    await setDoc(
+      doc(db, SETTINGS_COL, SETTINGS_DOC),
+      { brands: [...state.settingsBrands, ...fresh] },
+      { merge: true }
+    );
+    $('brandBulkInput').value = '';
+    showToast(`${fresh.length} brand ditambahkan${skipped ? `, ${skipped} dilewati (sudah ada)` : ''}.`);
+  } catch (err) {
+    console.error(err);
+    showToast(friendlyError(err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteBrand(name) {
+  if (!confirm(`Hapus brand "${name}"?`)) return;
+  try {
+    await setDoc(
+      doc(db, SETTINGS_COL, SETTINGS_DOC),
+      { brands: state.settingsBrands.filter((b) => String(b).toLowerCase() !== name.toLowerCase()) },
+      { merge: true }
+    );
+    showToast('Brand berhasil dihapus.');
+  } catch (err) {
+    console.error(err);
+    showToast(friendlyError(err), 'error');
+  }
+}
+
 // ---------- Data contoh ----------
 async function seedData() {
   try {
@@ -363,6 +456,13 @@ function init() {
 
   $('btnAddProduct').addEventListener('click', () => openProductForm());
   $('btnSettings').addEventListener('click', openSettings);
+  $('btnBrands').addEventListener('click', () => { renderBrandList(); openModal('brandModal'); });
+  $('btnCloseBrands').addEventListener('click', () => closeModal('brandModal'));
+  $('btnAddBrands').addEventListener('click', addBrands);
+  $('brandList').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-brand]');
+    if (btn) deleteBrand(btn.dataset.brand);
+  });
   $('btnSeed').addEventListener('click', seedData);
 
   $('productForm').addEventListener('submit', saveProduct);
@@ -388,7 +488,7 @@ function init() {
     if (e.target.dataset.action === 'stock') updateStockInline(e.target.closest('tr').dataset.id, e.target.value);
   });
 
-  enableModalDismiss(['productFormModal', 'storeSettingsModal']);
+  enableModalDismiss(['productFormModal', 'storeSettingsModal', 'brandModal']);
 
   showView('loading');
   initAuth();

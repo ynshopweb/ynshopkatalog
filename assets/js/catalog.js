@@ -32,7 +32,8 @@ function toMillis(ts) {
 
 // ---------- Render ----------
 function renderBrandFilters() {
-  const brands = ['Semua', ...mergeBrands(state.settingsBrands, state.products)];
+  // Customer hanya melihat brand yang sudah punya produk
+  const brands = ['Semua', ...mergeBrands([], state.products)];
   if (!brands.includes(state.selectedBrand)) state.selectedBrand = 'Semua';
 
   const box = $('brandFilterContainer');

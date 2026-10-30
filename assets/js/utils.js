@@ -105,5 +105,5 @@ export function mergeBrands(settingsBrands = [], products = []) {
     const name = String(b ?? '').trim();
     if (name && !seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name);
   });
-  return [...seen.values()];
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, 'id', { sensitivity: 'base' }));
 }
