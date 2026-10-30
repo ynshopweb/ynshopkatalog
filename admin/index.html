@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin - YnShop</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/assets/js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+  <!-- ========== LOADING ========== -->
+  <div id="viewLoading" class="flex-grow flex items-center justify-center">
+    <i class="fa-solid fa-heart fa-beat text-4xl text-brand-pink"></i>
+  </div>
+
+  <!-- ========== LOGIN ========== -->
+  <div id="viewLogin" class="hidden flex-grow flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl shadow-xl border border-pink-100 p-6 sm:p-8">
+      <div class="text-center mb-6">
+        <div class="inline-block bg-pink-50 p-2 px-4 rounded-2xl border-2 border-pink-200 mb-3">
+          <span class="font-heading text-2xl font-bold text-brand-pink flex items-center gap-1">
+            Yn<span class="text-brand-yellow drop-shadow-[0_1.2px_1.2px_rgba(225,42,94,0.8)]"><i class="fa-solid fa-heart"></i></span>Shop
+          </span>
+        </div>
+        <h1 class="font-heading text-xl font-bold text-gray-800">Login Pengelola</h1>
+        <p class="text-xs text-gray-500">Khusus admin toko</p>
+      </div>
+
+      <form id="loginForm" class="space-y-4 text-sm">
+        <div>
+          <label for="loginEmail" class="block text-xs font-semibold text-gray-700 mb-1">Email</label>
+          <input type="email" id="loginEmail" required autocomplete="username" class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+        </div>
+        <div>
+          <label for="loginPassword" class="block text-xs font-semibold text-gray-700 mb-1">Password</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password" class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+        </div>
+        <p id="loginError" class="hidden text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl p-2.5"></p>
+        <button id="btnLogin" type="submit" class="w-full py-3 rounded-xl bg-brand-pink hover:bg-brand-pinkHover text-white font-bold shadow-md transition">Masuk</button>
+      </form>
+
+      <a href="/" class="block text-center text-xs text-gray-400 hover:text-brand-pink mt-5">&larr; Kembali ke katalog</a>
+    </div>
+  </div>
+
+  <!-- ========== DASHBOARD ========== -->
+  <div id="viewDashboard" class="hidden flex-col flex-grow">
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-sm border-b border-pink-100">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="font-heading text-xl font-bold text-brand-pink flex items-center gap-1">
+            Yn<span class="text-brand-yellow drop-shadow-[0_1.2px_1.2px_rgba(225,42,94,0.8)]"><i class="fa-solid fa-heart"></i></span>Shop
+          </span>
+          <span class="text-[10px] font-bold uppercase tracking-wider bg-pink-100 text-brand-pink px-2 py-0.5 rounded-full">Admin</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="/" target="_blank" rel="noopener" class="hidden sm:flex items-center gap-2 bg-pink-50 hover:bg-pink-100 text-brand-pink font-medium text-xs px-4 py-2 rounded-full transition border border-pink-200">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Lihat Katalog
+          </a>
+          <button id="btnLogout" class="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs px-4 py-2 rounded-full transition">
+            <i class="fa-solid fa-right-from-bracket"></i> Keluar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-grow">
+      <div class="bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-pink-200">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
+          <div>
+            <h2 class="font-heading text-2xl font-bold text-brand-pink">Dashboard Pengelola Store</h2>
+            <p id="adminUserEmail" class="text-xs text-gray-500"></p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button id="btnSettings" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+              <i class="fa-solid fa-gear"></i> No. WA Toko
+            </button>
+            <button id="btnAddProduct" class="bg-brand-pink hover:bg-brand-pinkHover text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-md">
+              <i class="fa-solid fa-plus"></i> Tambah Produk
+            </button>
+          </div>
+        </div>
+
+        <!-- Data kosong: tawarkan data contoh -->
+        <div id="seedBox" class="hidden text-center bg-pink-50/60 border border-dashed border-pink-200 rounded-2xl p-6 mb-4">
+          <p class="text-sm text-gray-600 mb-3">Belum ada produk. Mau mulai dengan data contoh?</p>
+          <button id="btnSeed" class="bg-white hover:bg-pink-100 text-brand-pink border border-pink-200 text-xs font-bold px-4 py-2 rounded-xl transition">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Isi Data Contoh
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm">
+            <thead class="bg-pink-50 text-brand-pink font-semibold uppercase text-[11px]">
+              <tr>
+                <th class="p-3 rounded-l-lg">Gambar</th>
+                <th class="p-3">Nama Produk</th>
+                <th class="p-3">Brand</th>
+                <th class="p-3">Harga</th>
+                <th class="p-3">Stok</th>
+                <th class="p-3 text-center rounded-r-lg">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="adminProductTable" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ========== MODAL TAMBAH / EDIT PRODUK ========== -->
+  <div id="productFormModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-start justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-pink-100 p-6 relative my-8 animate-fade-in">
+      <button type="button" id="btnCloseForm" aria-label="Tutup" class="absolute top-4 right-4 w-8 h-8 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 id="formModalTitle" class="font-heading text-xl font-bold text-brand-pink mb-4">Tambah Produk Baru</h3>
+
+      <form id="productForm" class="space-y-4 text-xs sm:text-sm">
+        <input type="hidden" id="editProductId">
+
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Nama Produk *</label>
+          <input type="text" id="inputTitle" required placeholder="Contoh: Emina Bright Stuff Face Wash 100ml" class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Brand</label>
+          <select id="inputBrand" class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none bg-white"></select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Harga Jual / Promo (Rp) *</label>
+            <input type="number" id="inputPrice" required min="0" placeholder="35000" class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Harga Coret (Opsional)</label>
+            <input type="number" id="inputOriginalPrice" min="0" placeholder="50000" class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+          </div>
+        </div>
+        <p id="discountPreview" class="hidden -mt-2 text-[11px] font-semibold text-green-600"></p>
+        <p class="-mt-2 text-[11px] text-gray-400">Isi harga coret (harga normal) agar tampil promo di katalog. Kosongkan jika tidak ada promo.</p>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Jumlah Stok *</label>
+            <input type="number" id="inputStock" required min="0" placeholder="10" class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Brand Baru (Opsional)</label>
+            <input type="text" id="inputNewBrand" placeholder="Isi jika brand belum ada" class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">URL Gambar Utama *</label>
+          <input type="url" id="inputMainImg" required placeholder="https://..." class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+        </div>
+
+        <div class="bg-pink-50/50 p-3 rounded-2xl border border-pink-100 space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="font-bold text-brand-pink text-xs uppercase">Gambar Varian / Shade (Opsional)</label>
+            <button type="button" id="btnAddVariant" class="text-xs bg-brand-pink text-white px-2 py-1 rounded-lg font-semibold">+ Varian</button>
+          </div>
+          <div id="variantInputsContainer" class="space-y-2"></div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Deskripsi Produk *</label>
+          <textarea id="inputDescription" rows="3" required placeholder="Tuliskan manfaat, keunggulan, atau cara pemakaian..." class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="btnCancelForm" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold">Batal</button>
+          <button type="submit" id="btnSaveProduct" class="px-5 py-2 rounded-xl bg-brand-pink hover:bg-brand-pinkHover text-white font-bold shadow-md disabled:opacity-60">Simpan Produk</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========== MODAL PENGATURAN TOKO ========== -->
+  <div id="storeSettingsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-pink-100 p-6 relative animate-fade-in">
+      <button type="button" id="btnCloseSettings" aria-label="Tutup" class="absolute top-4 right-4 w-8 h-8 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 class="font-heading text-xl font-bold text-brand-pink mb-4">Pengaturan Toko</h3>
+
+      <form id="settingsForm" class="space-y-4 text-xs sm:text-sm">
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Nomor WhatsApp Toko</label>
+          <input type="text" id="settingWhatsappNumber" inputmode="numeric" placeholder="628123456789" class="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-brand-pink outline-none">
+          <span class="text-[11px] text-gray-400">Format internasional tanpa tanda + (contoh: 628123456789)</span>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-brand-pink text-white font-bold shadow-md hover:bg-brand-pinkHover transition">Simpan Pengaturan</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/assets/js/admin.js"></script>
+</body>
+</html>
