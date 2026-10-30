@@ -8,7 +8,7 @@ import {
 } from './firebase.js';
 import {
   DEFAULT_WA, IMG_FALLBACK, escapeHtml, safeUrl, formatRupiah, cleanPhone,
-  priceInfo, attachImgFallback, openModal, closeModal, enableModalDismiss, showToast, mergeBrands,
+  priceInfo, variantStock, totalStock, attachImgFallback, openModal, closeModal, enableModalDismiss, showToast, mergeBrands,
 } from './utils.js';
 import { SEED_BRANDS, SEED_PRODUCTS } from './seed-data.js';
 
@@ -116,6 +116,10 @@ function stopListening() {
 }
 
 // ---------- Tabel produk ----------
+function adminVariants(p) {
+  return p.variants?.length ? p.variants : [{ name: 'Utama', img: p.mainImg }];
+}
+
 function renderTable() {
   const tbody = $('adminProductTable');
   $('seedBox').classList.toggle('hidden', state.products.length > 0);
@@ -135,8 +139,15 @@ function renderTable() {
         ${pr.onSale ? `<span class="ml-1 text-[10px] font-extrabold bg-brand-yellow text-brand-dark px-1.5 py-0.5 rounded-full">-${pr.discount}%</span>` : ''}
       </td>
       <td class="p-3">
-        <input type="number" min="0" value="${Number(p.stock) || 0}" data-action="stock"
-          class="w-16 p-1 text-center border border-pink-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-brand-pink outline-none">
+        <div class="space-y-1 min-w-[150px]">
+          ${adminVariants(p).map((v, i) => `
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] text-gray-600 truncate max-w-[110px]" title="${escapeHtml(v.name)}">${escapeHtml(v.name)}</span>
+              <input type="number" min="0" value="${variantStock(v, p)}" data-action="stock" data-idx="${i}"
+                class="w-14 p-1 text-center border border-pink-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-brand-pink outline-none">
+            </div>`).join('')}
+          <div class="text-[10px] font-bold text-brand-pink pt-0.5">Total: ${totalStock(p)}</div>
+        </div>
       </td>
       <td class="p-3 text-center whitespace-nowrap space-x-2">
         <button data-action="edit" class="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -148,10 +159,18 @@ function renderTable() {
   attachImgFallback(tbody, 'https://placehold.co/100x100/FFF0F5/E12A5E?text=YN');
 }
 
-async function updateStockInline(id, value) {
+async function updateStockInline(id, idx, value) {
+  const p = state.products.find((x) => x.id === id);
+  if (!p) return;
   const stock = Math.max(0, parseInt(value, 10) || 0);
+  const variants = adminVariants(p).map((v, i) => ({
+    name: v.name,
+    img: v.img,
+    stock: i === idx ? stock : variantStock(v, p),
+  }));
+  const total = variants.reduce((sum, v) => sum + v.stock, 0);
   try {
-    await updateDoc(doc(db, PRODUCTS_COL, id), { stock, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, PRODUCTS_COL, id), { variants, stock: total, updatedAt: serverTimestamp() });
     showToast('Stok berhasil diperbarui!');
   } catch (err) {
     console.error(err);
@@ -172,21 +191,29 @@ async function deleteProduct(id) {
 }
 
 // ---------- Form produk ----------
-function addVariantInput(name = '', img = '') {
+function addVariantInput(name = '', img = '', stock = '') {
   const row = document.createElement('div');
   row.className = 'flex gap-2 items-center variant-row';
 
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
-  nameInput.placeholder = 'Nama Varian (mis: Shade 01)';
-  nameInput.className = 'variant-name w-1/3 p-2 border rounded-xl text-xs';
+  nameInput.placeholder = 'Varian (mis: Shade 01)';
+  nameInput.className = 'variant-name w-1/4 min-w-0 p-2 border rounded-xl text-xs';
   nameInput.value = name;
 
   const imgInput = document.createElement('input');
   imgInput.type = 'url';
-  imgInput.placeholder = 'URL Gambar Varian';
-  imgInput.className = 'variant-img w-2/3 p-2 border rounded-xl text-xs';
+  imgInput.placeholder = 'URL Gambar Varian (kosong = gambar utama)';
+  imgInput.className = 'variant-img flex-1 min-w-0 p-2 border rounded-xl text-xs';
   imgInput.value = img;
+
+  const stockInput = document.createElement('input');
+  stockInput.type = 'number';
+  stockInput.min = '0';
+  stockInput.placeholder = 'Stok';
+  stockInput.title = 'Stok varian ini';
+  stockInput.className = 'variant-stock w-16 p-2 border rounded-xl text-xs text-center';
+  stockInput.value = stock;
 
   const del = document.createElement('button');
   del.type = 'button';
@@ -194,7 +221,7 @@ function addVariantInput(name = '', img = '') {
   del.innerHTML = '<i class="fa-solid fa-xmark"></i>';
   del.addEventListener('click', () => row.remove());
 
-  row.append(nameInput, imgInput, del);
+  row.append(nameInput, imgInput, stockInput, del);
   $('variantInputsContainer').appendChild(row);
 }
 
@@ -225,15 +252,13 @@ function openProductForm(product = null) {
     $('inputTitle').value = product.title;
     $('inputPrice').value = product.price;
     $('inputOriginalPrice').value = product.originalPrice || '';
-    $('inputStock').value = product.stock;
     $('inputMainImg').value = product.mainImg;
     $('inputDescription').value = product.description || '';
-    if (product.variants?.length) product.variants.forEach((v) => addVariantInput(v.name, v.img));
-    else addVariantInput();
+    adminVariants(product).forEach((v) => addVariantInput(v.name, v.img, variantStock(v, product)));
   } else {
     $('formModalTitle').textContent = 'Tambah Produk Baru';
     $('editProductId').value = '';
-    addVariantInput();
+    addVariantInput('Utama', '', '');
   }
   updateDiscountPreview();
   openModal('productFormModal');
@@ -271,10 +296,18 @@ async function saveProduct(e) {
   for (const row of document.querySelectorAll('.variant-row')) {
     const name = row.querySelector('.variant-name').value.trim();
     const rawImg = row.querySelector('.variant-img').value.trim();
-    if (!name && !rawImg) continue;
+    const rawStock = row.querySelector('.variant-stock').value.trim();
+    if (!name && !rawImg && !rawStock) continue;
     const img = rawImg ? safeUrl(rawImg) : mainImg;
     if (!img) return showToast(`URL gambar varian "${name || 'tanpa nama'}" tidak valid.`, 'error');
-    variants.push({ name: name || 'Varian', img });
+    variants.push({
+      name: name || 'Varian',
+      img,
+      stock: Math.max(0, parseInt(rawStock, 10) || 0),
+    });
+  }
+  if (!variants.length) {
+    return showToast('Isi minimal satu varian beserta stoknya (pakai nama "Utama" jika tanpa varian).', 'error');
   }
 
   const price = Math.max(0, parseInt($('inputPrice').value, 10) || 0);
@@ -288,9 +321,9 @@ async function saveProduct(e) {
     brand,
     price,
     originalPrice, // 0 = tidak ada promo
-    stock: Math.max(0, parseInt($('inputStock').value, 10) || 0),
+    stock: variants.reduce((sum, v) => sum + v.stock, 0), // total semua varian
     mainImg,
-    variants: variants.length ? variants : [{ name: 'Utama', img: mainImg }],
+    variants,
     description: $('inputDescription').value.trim(),
     updatedAt: serverTimestamp(),
   };
@@ -432,8 +465,15 @@ async function seedData() {
   try {
     const batch = writeBatch(db);
     SEED_PRODUCTS.forEach((p) => {
+      // Bagi stok contoh ke tiap varian (sisa ke varian pertama)
+      const n = p.variants.length;
+      const base = Math.floor(p.stock / n);
+      const variants = p.variants.map((v, i) => ({
+        ...v,
+        stock: base + (i === 0 ? p.stock - base * n : 0),
+      }));
       batch.set(doc(collection(db, PRODUCTS_COL)), {
-        ...p, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        ...p, variants, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
       });
     });
     batch.set(
@@ -485,7 +525,9 @@ function init() {
     if (btn.dataset.action === 'delete') deleteProduct(id);
   });
   tbody.addEventListener('change', (e) => {
-    if (e.target.dataset.action === 'stock') updateStockInline(e.target.closest('tr').dataset.id, e.target.value);
+    if (e.target.dataset.action === 'stock') {
+      updateStockInline(e.target.closest('tr').dataset.id, Number(e.target.dataset.idx), e.target.value);
+    }
   });
 
   enableModalDismiss(['productFormModal', 'storeSettingsModal', 'brandModal']);

@@ -5,7 +5,7 @@ import {
 } from './firebase.js';
 import {
   DEFAULT_WA, IMG_FALLBACK, escapeHtml, safeUrl, formatRupiah, cleanPhone,
-  stockInfo, priceInfo, attachImgFallback, openModal, closeModal, enableModalDismiss,
+  stockInfo, priceInfo, variantStock, totalStock, attachImgFallback, openModal, closeModal, enableModalDismiss,
   showToast, mergeBrands,
 } from './utils.js';
 
@@ -123,10 +123,11 @@ function renderVariantThumbs() {
 
   variants.forEach((v, idx) => {
     const btn = document.createElement('button');
-    btn.title = v.name;
+    const vOut = variantStock(v, state.active) <= 0;
+    btn.title = `${v.name} (${vOut ? 'Habis' : 'Stok ' + variantStock(v, state.active)})`;
     btn.className = `relative w-12 h-12 rounded-xl overflow-hidden border-2 transition flex-shrink-0 ${
       idx === state.variantIdx ? 'border-brand-pink ring-2 ring-pink-200' : 'border-transparent opacity-70 hover:opacity-100'
-    }`;
+    } ${vOut ? 'grayscale' : ''}`;
     btn.innerHTML = `<img src="${escapeHtml(safeUrl(v.img) || IMG_FALLBACK)}" alt="${escapeHtml(v.name)}" class="w-full h-full object-cover">`;
     btn.addEventListener('click', () => {
       state.variantIdx = idx;
@@ -145,6 +146,18 @@ function renderDetailImage() {
   img.src = safeUrl(v.img) || IMG_FALLBACK;
   img.alt = `${state.active.title} - ${v.name}`;
   $('selectedVariantText').textContent = v.name || 'Utama';
+  updateStockBadge();
+}
+
+// Stok mengikuti varian yang sedang dipilih
+function updateStockBadge() {
+  const p = state.active;
+  const v = getVariants(p)[state.variantIdx];
+  const s = stockInfo(variantStock(v, p));
+  const badge = $('detailStockBadge');
+  badge.className = `absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow ${s.cls}`;
+  badge.textContent = s.detail;
+  $('btnOrderText').textContent = s.out ? 'Tanya Ketersediaan Via WA' : 'Pesan Sekarang Via WA';
 }
 
 function openProductDetail(id) {
@@ -154,7 +167,6 @@ function openProductDetail(id) {
   state.active = p;
   state.variantIdx = 0;
 
-  const s = stockInfo(p.stock);
   $('detailTitle').textContent = p.title;
   $('detailBrand').textContent = p.brand;
   const pr = priceInfo(p);
@@ -165,12 +177,6 @@ function openProductDetail(id) {
     $('detailDiscount').textContent = `Hemat ${pr.discount}%`;
   }
   $('detailDescription').textContent = p.description || 'Tidak ada deskripsi.';
-
-  const badge = $('detailStockBadge');
-  badge.className = `absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow ${s.cls}`;
-  badge.textContent = s.detail;
-
-  $('btnOrderText').textContent = s.out ? 'Tanya Ketersediaan Via WA' : 'Pesan Sekarang Via WA';
 
   renderDetailImage();
   renderVariantThumbs();
@@ -252,7 +258,7 @@ function startListening() {
           ...p,
           title: p.title || '',
           brand: p.brand || '',
-          stock: Number(p.stock) || 0,
+          stock: totalStock(p),
           price: Number(p.price) || 0,
         }))
         .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));

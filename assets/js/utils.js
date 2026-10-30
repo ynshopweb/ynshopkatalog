@@ -52,6 +52,22 @@ export function stockInfo(stock) {
   return { label: `Stok: ${n}`, detail: `Tersedia Stok: ${n}`, cls: 'bg-green-500', out: false };
 }
 
+/** Stok satu varian. Data lama (tanpa stok per varian) memakai stok produk. */
+export function variantStock(variant, product) {
+  return typeof variant?.stock === 'number'
+    ? Math.max(0, variant.stock)
+    : Math.max(0, Number(product?.stock) || 0);
+}
+
+/** Total stok produk = jumlah stok semua varian (jika semua varian punya stok). */
+export function totalStock(product) {
+  const vs = product?.variants || [];
+  if (vs.length && vs.every((v) => typeof v.stock === 'number')) {
+    return vs.reduce((sum, v) => sum + Math.max(0, v.stock), 0);
+  }
+  return Math.max(0, Number(product?.stock) || 0);
+}
+
 /** Pasang gambar cadangan jika gambar gagal dimuat */
 export function attachImgFallback(root, fallback = IMG_FALLBACK) {
   root.querySelectorAll('img').forEach((img) => {
