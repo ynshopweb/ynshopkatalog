@@ -91,7 +91,7 @@
 
   <!-- MODAL DETAIL PRODUK -->
   <div id="productDetailModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-pink-100 p-5 sm:p-6 relative animate-fade-in">
+    <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-pink-100 p-5 sm:p-6 relative animate-fade-in">
       <button id="btnCloseDetail" aria-label="Tutup" class="absolute top-4 right-4 w-9 h-9 bg-gray-100 hover:bg-pink-100 text-gray-600 hover:text-brand-pink rounded-full flex items-center justify-center transition z-10">
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
@@ -103,8 +103,9 @@
             <div id="detailStockBadge" class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow"></div>
           </div>
           <div class="space-y-1">
-            <p class="text-[11px] font-semibold text-gray-500 uppercase">Pilih Varian / Gambar:</p>
-            <div id="detailVariantThumbnails" class="flex gap-2 overflow-x-auto pb-2 scrollbar-none"></div>
+            <p class="text-[11px] font-semibold text-gray-500 uppercase">Pilih Varian <span id="detailVariantCount" class="normal-case font-medium text-gray-400"></span></p>
+            <div id="detailVariantThumbnails" role="group" aria-label="Pilihan varian"></div>
+            <p id="variantSelectedInline" class="md:hidden pt-1 text-[11px] font-semibold text-brand-pink"></p>
           </div>
         </div>
 

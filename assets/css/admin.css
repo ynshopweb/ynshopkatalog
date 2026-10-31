@@ -1,0 +1,107 @@
+/* ===== Dashboard admin: tabel produk ringkas + panel Kelola Varian ===== */
+
+/* Lebar area tabel dipakai sebagai acuan jumlah kolom grid varian */
+.admin-table-wrap { container-type: inline-size; }
+
+.prow { border-top: 1px solid #f3f4f6; transition: background-color 0.2s; }
+.prow:hover { background: rgba(255, 240, 245, 0.6); }
+.prow.is-open { background: #fff0f5; }
+.prow.is-open > td:first-child { box-shadow: inset 4px 0 0 #e12a5e; }
+
+.prow-chevron { transition: transform 0.25s ease; }
+.prow.is-open .prow-chevron { transform: rotate(180deg); }
+.prow-toggle[aria-expanded="true"] { background: #e12a5e; color: #fff; border-color: #e12a5e; }
+
+/* Panel varian (expand/collapse halus lewat grid-template-rows) */
+.vp-row > td { padding: 0 !important; border: 0; }
+.vp-row.is-open { background: #fff0f5; box-shadow: inset 4px 0 0 #e12a5e; }
+
+.vp-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+.vp-wrap.is-open { grid-template-rows: 1fr; }
+
+.vp-inner {
+  min-height: 0;
+  overflow: hidden;
+  overflow: clip;            /* clip: tidak jadi scroll container, sticky tetap jalan */
+  visibility: hidden;        /* input tertutup tidak bisa difokus lewat Tab */
+  transition: visibility 0s linear 0.3s;
+}
+.vp-wrap.is-open .vp-inner { visibility: visible; transition-delay: 0s; }
+
+/* Di HP tabel bisa digeser; panel dibuat selebar area tampil & menempel di kiri */
+.vp-content {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: 100cqw;
+  padding: 0.75rem 1rem 1rem 1.25rem;
+}
+@supports not (width: 1cqw) { .vp-content { width: 100%; } }
+
+.vp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);       /* HP kecil: 1 kolom */
+  gap: 0.5rem;
+}
+@container (min-width: 320px) { .vp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } } /* HP / tablet: 2 kolom */
+@container (min-width: 820px) { .vp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } } /* desktop: 3 kolom */
+
+.vp-item {
+  display: flex;
+  flex-wrap: wrap;           /* ruang sempit: kotak stok turun di bawah nama */
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: #fff;
+  border: 1px solid #fbcfe8;
+  border-radius: 0.75rem;
+}
+.vp-name {
+  flex: 1 1 96px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #374151;
+  overflow-wrap: anywhere;
+}
+.vp-habis {
+  display: none;
+  margin-left: 0.25rem;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #6b7280;
+  background: #e5e7eb;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.vp-item.is-out { background: #fafafa; border-color: #e5e7eb; }
+.vp-item.is-out .vp-name { color: #9ca3af; }
+.vp-item.is-out .vp-habis { display: inline-block; }
+
+.vp-input {
+  flex: none;
+  margin-left: auto;
+  width: 4rem;
+  padding: 0.3rem;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #f9a8d4;
+  border-radius: 0.5rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+.vp-input:focus { border-color: #e12a5e; box-shadow: 0 0 0 2px rgba(225, 42, 94, 0.2); }
+.vp-input.is-saving { opacity: 0.55; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-wrap, .vp-inner, .prow-chevron, .prow { transition: none; }
+}

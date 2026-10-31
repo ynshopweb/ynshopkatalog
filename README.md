@@ -72,6 +72,17 @@ vercel --prod
 Setelah deploy, **tambahkan domain Vercel ke Firebase**:
 Authentication > Settings > **Authorized domains** > Add domain (mis. `ynshop.vercel.app` dan domain custom jika ada). Tanpa ini, login admin akan ditolak di situs online.
 
+## Urutan Produk di Katalog
+
+Produk di katalog tidak lagi diurutkan hanya berdasarkan waktu input, tetapi berdasarkan **rekomendasi**:
+
+- **Stok banyak** dan **sering dibuka/dicari** customer tampil lebih dulu. Skor = 60% popularitas (jumlah klik + 3x jumlah pencarian) + 40% stok (stok di atas 50 dianggap sama).
+- Produk yang **stoknya habis selalu di paling bawah**.
+- Saat customer mengetik pencarian, produk yang **namanya cocok** didahulukan.
+- Klik dan pencarian dicatat di koleksi `stats` (satu dokumen per produk: `clicks`, `searches`). Satu produk dihitung **sekali per browser per 12 jam**. "Pencarian" dihitung ketika customer membuka produk saat kolom pencarian sedang terisi.
+- Aturan Firestore yang baru **wajib dipublikasikan ulang** (salin `firestore.rules` ke Firebase Console > Firestore > Rules > Publish). Tanpa itu katalog tetap jalan, tetapi diurutkan hanya berdasarkan stok dan klik tidak tersimpan.
+- Untuk mengatur ulang statistik, hapus dokumen di koleksi `stats` lewat Firebase Console.
+
 ## Catatan
 
 - **Gambar produk** memakai URL (sama seperti versi sebelumnya). Firebase Storage sekarang membutuhkan paket berbayar (Blaze), jadi tidak dipakai di sini. Alternatifnya, unggah gambar ke layanan gratis seperti Cloudinary/ImgBB lalu tempel URL-nya.

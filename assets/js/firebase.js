@@ -28,11 +28,12 @@ export const auth = getAuth(app);
 export const PRODUCTS_COL = 'products';
 export const SETTINGS_COL = 'settings';
 export const SETTINGS_DOC = 'store';
+export const STATS_COL = 'stats'; // statistik populer: stats/{productId} = { clicks, searches }
 
 // Re-export fungsi Firebase agar versi SDK cukup diatur di satu tempat
 export {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc,
-  getDoc, serverTimestamp, arrayUnion, writeBatch,
+  getDoc, getDocs, serverTimestamp, arrayUnion, writeBatch, runTransaction, increment,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
 export {

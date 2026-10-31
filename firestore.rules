@@ -16,6 +16,26 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Statistik populer: customer hanya boleh MENAMBAH hitungan sebanyak 0 atau 1 per tulis.
+    // Mereka tidak bisa mengurangi, mengisi angka besar, atau mengubah field lain.
+    match /stats/{productId} {
+      allow read: if true;
+
+      allow create: if request.resource.data.keys().hasOnly(['clicks', 'searches', 'updatedAt'])
+        && request.resource.data.clicks in [0, 1]
+        && request.resource.data.searches in [0, 1]
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isAdmin() || (
+        request.resource.data.keys().hasOnly(['clicks', 'searches', 'updatedAt'])
+        && request.resource.data.clicks - resource.data.clicks in [0, 1]
+        && request.resource.data.searches - resource.data.searches in [0, 1]
+        && request.resource.data.updatedAt == request.time
+      );
+
+      allow delete: if isAdmin();
+    }
+
     // Pengaturan toko (nomor WA, daftar brand)
     match /settings/{docId} {
       allow read: if true;

@@ -1,7 +1,7 @@
 // Logika halaman katalog (customer) - hanya membaca data dari Firestore
 import {
-  db, isFirebaseConfigured, collection, doc, onSnapshot,
-  PRODUCTS_COL, SETTINGS_COL, SETTINGS_DOC,
+  db, isFirebaseConfigured, collection, doc, onSnapshot, getDocs, setDoc, increment, serverTimestamp,
+  PRODUCTS_COL, SETTINGS_COL, SETTINGS_DOC, STATS_COL,
 } from './firebase.js';
 import {
   DEFAULT_WA, IMG_FALLBACK, escapeHtml, safeUrl, formatRupiah, cleanPhone,
@@ -17,6 +17,7 @@ const state = {
   search: '',
   active: null,        // produk yang sedang dibuka
   variantIdx: 0,       // varian yang sedang dipilih
+  stats: {},           // { [productId]: { clicks, searches } } - dibaca sekali per kunjungan
 };
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +29,87 @@ function getVariants(p) {
 
 function toMillis(ts) {
   return ts?.toMillis ? ts.toMillis() : 0;
+}
+
+// ---------- Urutan rekomendasi & statistik populer ----------
+// Skor = 60% popularitas (klik + 3x pencarian, dibanding produk terpopuler)
+//      + 40% stok (maks. dihitung 50 agar stok raksasa tidak mendominasi).
+// Produk yang stoknya habis selalu di paling bawah. Seri diurutkan dari yang terbaru.
+const STOCK_CAP = 50;
+const W_POPULAR = 0.6;
+const W_STOCK = 0.4;
+const SEARCH_WEIGHT = 3;
+
+function popularity(id) {
+  const st = state.stats[id];
+  return st ? st.clicks + SEARCH_WEIGHT * st.searches : 0;
+}
+
+function rankProducts(list, q) {
+  const maxPop = Math.max(0, ...list.map((p) => popularity(p.id)));
+  const score = (p) =>
+    W_POPULAR * (maxPop ? popularity(p.id) / maxPop : 0) +
+    W_STOCK * (Math.min(p.stock, STOCK_CAP) / STOCK_CAP);
+  // Saat mencari: yang namanya cocok didahulukan, baru brand/varian/deskripsi
+  const matchRank = (p) => (q && !p.title.toLowerCase().includes(q) ? 1 : 0);
+
+  // sort() stabil, jadi urutan awal (terbaru dulu) menjadi penentu saat skor sama
+  return list.sort((a, b) =>
+    (a.stock <= 0) - (b.stock <= 0) ||
+    matchRank(a) - matchRank(b) ||
+    score(b) - score(a)
+  );
+}
+
+async function loadStats() {
+  try {
+    const snap = await Promise.race([
+      getDocs(collection(db, STATS_COL)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500)),
+    ]);
+    const stats = {};
+    snap.docs.forEach((d) => {
+      const x = d.data();
+      stats[d.id] = { clicks: Number(x.clicks) || 0, searches: Number(x.searches) || 0 };
+    });
+    state.stats = stats;
+  } catch (err) {
+    // Katalog tetap jalan (diurutkan berdasarkan stok) bila statistik tidak bisa dibaca
+    console.warn('Statistik populer tidak tersedia:', err.message || err);
+  }
+}
+
+// Satu browser hanya dihitung sekali per produk per 12 jam (mengurangi klik berulang/spam)
+const COUNT_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+const SEEN_KEY = 'ynshop_counted';
+
+function takeCount(kind, id) {
+  try {
+    const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
+    const key = `${kind}:${id}`;
+    const now = Date.now();
+    if (seen[key] && now - seen[key] < COUNT_COOLDOWN_MS) return 0;
+    seen[key] = now;
+    // buang catatan kadaluarsa
+    Object.keys(seen).forEach((k) => { if (now - seen[k] > COUNT_COOLDOWN_MS) delete seen[k]; });
+    localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+    return 1;
+  } catch {
+    return 1; // penyimpanan browser diblokir: tetap hitung
+  }
+}
+
+// Produk dibuka = +1 klik. Jika customer sedang mengetik pencarian = +1 pencarian juga.
+function trackProductOpen(id) {
+  if (!isFirebaseConfigured) return;
+  const clicks = takeCount('c', id);
+  const searches = state.search.trim().length >= 2 ? takeCount('s', id) : 0;
+  if (!clicks && !searches) return;
+  setDoc(
+    doc(db, STATS_COL, id),
+    { clicks: increment(clicks), searches: increment(searches), updatedAt: serverTimestamp() },
+    { merge: true }
+  ).catch((err) => console.debug('Statistik tidak tersimpan:', err.code || err));
 }
 
 // ---------- Render ----------
@@ -84,6 +166,8 @@ function renderProducts() {
     return okBrand && okSearch;
   });
 
+  rankProducts(filtered, q);
+
   $('productCount').textContent = `${filtered.length} Produk ditemukan`;
   $('emptyState').classList.toggle('hidden', filtered.length > 0);
 
@@ -116,27 +200,53 @@ function renderProducts() {
 }
 
 // ---------- Detail produk ----------
+// Pilihan varian: <=5 varian = baris (flex), >5 varian = grid yang otomatis turun baris.
+// Tidak ada batas jumlah dan tidak ada scroll horizontal; halaman/modal yang digulir ke bawah.
 function renderVariantThumbs() {
-  const variants = getVariants(state.active);
+  const p = state.active;
+  const variants = getVariants(p);
   const box = $('detailVariantThumbnails');
+
+  box.className = variants.length > 5 ? 'variant-grid' : 'variant-list';
+  $('detailVariantCount').textContent = `(${variants.length})`;
   box.innerHTML = '';
 
   variants.forEach((v, idx) => {
+    const qty = variantStock(v, p);
+    const out = qty <= 0;
+
     const btn = document.createElement('button');
-    const vOut = variantStock(v, state.active) <= 0;
-    btn.title = `${v.name} (${vOut ? 'Habis' : 'Stok ' + variantStock(v, state.active)})`;
-    btn.className = `relative w-12 h-12 rounded-xl overflow-hidden border-2 transition flex-shrink-0 ${
-      idx === state.variantIdx ? 'border-brand-pink ring-2 ring-pink-200' : 'border-transparent opacity-70 hover:opacity-100'
-    } ${vOut ? 'grayscale' : ''}`;
-    btn.innerHTML = `<img src="${escapeHtml(safeUrl(v.img) || IMG_FALLBACK)}" alt="${escapeHtml(v.name)}" class="w-full h-full object-cover">`;
-    btn.addEventListener('click', () => {
-      state.variantIdx = idx;
-      renderVariantThumbs();
-      renderDetailImage();
-    });
+    btn.type = 'button';
+    btn.dataset.idx = idx;
+    btn.className = `variant-item${out ? ' is-out' : ''}`;
+    btn.title = `${v.name} - ${out ? 'Habis' : 'Stok ' + qty}`;
+    btn.innerHTML = `
+      <span class="variant-thumb">
+        <img src="${escapeHtml(safeUrl(v.img) || IMG_FALLBACK)}" alt="" loading="lazy">
+        ${out ? '<span class="variant-soldout">Habis</span>' : ''}
+      </span>
+      <span class="variant-name">${escapeHtml(v.name)}</span>`;
+    btn.addEventListener('click', () => selectVariant(idx));
     box.appendChild(btn);
   });
+
   attachImgFallback(box);
+  markSelectedVariant();
+}
+
+// Ganti penanda pilihan tanpa membangun ulang daftar (posisi scroll & fokus tetap)
+function markSelectedVariant() {
+  $('detailVariantThumbnails').querySelectorAll('.variant-item').forEach((btn) => {
+    const selected = Number(btn.dataset.idx) === state.variantIdx;
+    btn.classList.toggle('is-selected', selected);
+    btn.setAttribute('aria-pressed', String(selected));
+  });
+}
+
+function selectVariant(idx) {
+  state.variantIdx = idx;
+  markSelectedVariant();
+  renderDetailImage(); // memperbarui gambar utama, nama varian, badge stok & tombol WA
 }
 
 function renderDetailImage() {
@@ -158,6 +268,8 @@ function updateStockBadge() {
   badge.className = `absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow ${s.cls}`;
   badge.textContent = s.detail;
   $('btnOrderText').textContent = s.out ? 'Tanya Ketersediaan Via WA' : 'Pesan Sekarang Via WA';
+  // Umpan balik dekat daftar varian (di HP, gambar utama bisa sudah tergulir ke atas)
+  $('variantSelectedInline').textContent = `Dipilih: ${v.name} \u00b7 ${s.detail}`;
 }
 
 function openProductDetail(id) {
@@ -248,9 +360,12 @@ function startListening() {
     return;
   }
 
+  const statsReady = loadStats(); // dibaca sekali; tampilan pertama menunggu agar urutan tidak melompat
+
   onSnapshot(
     collection(db, PRODUCTS_COL),
-    (snap) => {
+    async (snap) => {
+      await statsReady;
       $('errorState').classList.add('hidden');
       state.products = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
@@ -303,7 +418,10 @@ function init() {
 
   $('productGrid').addEventListener('click', (e) => {
     const card = e.target.closest('[data-id]');
-    if (card) openProductDetail(card.dataset.id);
+    if (card) {
+      openProductDetail(card.dataset.id);
+      trackProductOpen(card.dataset.id);
+    }
   });
 
   $('btnCloseDetail').addEventListener('click', () => closeModal('productDetailModal'));

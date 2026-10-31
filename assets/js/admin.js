@@ -2,9 +2,9 @@
 import {
   db, auth, isFirebaseConfigured,
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp,
-  arrayUnion, writeBatch,
+  arrayUnion, writeBatch, runTransaction,
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
-  PRODUCTS_COL, SETTINGS_COL, SETTINGS_DOC,
+  PRODUCTS_COL, SETTINGS_COL, SETTINGS_DOC, STATS_COL,
 } from './firebase.js';
 import {
   DEFAULT_WA, IMG_FALLBACK, escapeHtml, safeUrl, formatRupiah, cleanPhone,
@@ -120,61 +120,209 @@ function adminVariants(p) {
   return p.variants?.length ? p.variants : [{ name: 'Utama', img: p.mainImg }];
 }
 
-function renderTable() {
-  const tbody = $('adminProductTable');
-  $('seedBox').classList.toggle('hidden', state.products.length > 0);
+// Satu baris ringkas per produk + satu baris panel "Kelola Varian" yang tertutup secara default.
+// Baris tidak dibangun ulang saat hanya stok yang berubah (fokus & posisi scroll tetap aman).
+const rowCache = new Map();   // id -> { sig, main, panel }
+const expandedIds = new Set(); // produk yang panel variannya sedang terbuka
 
-  tbody.innerHTML = state.products.map((p) => {
-    const pr = priceInfo(p);
+function structureSig(p) {
+  return JSON.stringify([
+    p.title, p.brand, p.mainImg, Number(p.price) || 0, Number(p.originalPrice) || 0,
+    adminVariants(p).map((v) => v.name),
+  ]);
+}
+
+function buildRows(p) {
+  const pr = priceInfo(p);
+  const variants = adminVariants(p);
+  const total = totalStock(p);
+  const open = expandedIds.has(p.id);
+  const id = escapeHtml(p.id);
+  const title = escapeHtml(p.title);
+
+  const items = variants.map((v, i) => {
+    const qty = variantStock(v, p);
     return `
-    <tr class="hover:bg-pink-50/50 transition" data-id="${escapeHtml(p.id)}">
-      <td class="p-3">
+      <label class="vp-item${qty <= 0 ? ' is-out' : ''}">
+        <span class="vp-name">${escapeHtml(v.name)}<span class="vp-habis">Habis</span></span>
+        <input type="number" min="0" step="1" inputmode="numeric" value="${qty}"
+          data-action="stock" data-idx="${i}" class="vp-input" aria-label="Stok ${escapeHtml(v.name)}">
+      </label>`;
+  }).join('');
+
+  const tmp = document.createElement('tbody');
+  tmp.innerHTML = `
+    <tr class="prow${open ? ' is-open' : ''}" data-id="${id}">
+      <td class="p-3 align-middle">
         <img src="${escapeHtml(safeUrl(p.mainImg) || IMG_FALLBACK)}" alt="" class="w-12 h-12 object-cover rounded-xl border border-pink-100">
       </td>
-      <td class="p-3 font-semibold text-gray-800">${escapeHtml(p.title)}</td>
-      <td class="p-3"><span class="bg-pink-100 text-brand-pink font-bold text-xs px-2 py-0.5 rounded-full">${escapeHtml(p.brand)}</span></td>
-      <td class="p-3 whitespace-nowrap">
+      <td class="p-3 align-middle font-semibold text-gray-800 min-w-[140px]">${title}</td>
+      <td class="p-3 align-middle"><span class="bg-pink-100 text-brand-pink font-bold text-xs px-2 py-0.5 rounded-full whitespace-nowrap">${escapeHtml(p.brand)}</span></td>
+      <td class="p-3 align-middle whitespace-nowrap">
         ${pr.onSale ? `<span class="block text-[11px] text-gray-400 line-through">Rp ${formatRupiah(pr.original)}</span>` : ''}
         <span class="font-bold text-gray-700">Rp ${formatRupiah(pr.price)}</span>
         ${pr.onSale ? `<span class="ml-1 text-[10px] font-extrabold bg-brand-yellow text-brand-dark px-1.5 py-0.5 rounded-full">-${pr.discount}%</span>` : ''}
       </td>
-      <td class="p-3">
-        <div class="space-y-1 min-w-[150px]">
-          ${adminVariants(p).map((v, i) => `
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-[11px] text-gray-600 truncate max-w-[110px]" title="${escapeHtml(v.name)}">${escapeHtml(v.name)}</span>
-              <input type="number" min="0" value="${variantStock(v, p)}" data-action="stock" data-idx="${i}"
-                class="w-14 p-1 text-center border border-pink-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-brand-pink outline-none">
-            </div>`).join('')}
-          <div class="text-[10px] font-bold text-brand-pink pt-0.5">Total: ${totalStock(p)}</div>
+      <td class="p-3 align-middle">
+        <div class="flex flex-col items-start gap-1.5 min-w-[150px]">
+          <div class="leading-tight">
+            <span data-role="total" class="block text-xs font-extrabold ${total <= 0 ? 'text-red-600' : 'text-gray-800'}">Total Stok: ${total}</span>
+            <span class="block text-[11px] text-gray-500">${variants.length} Varian</span>
+          </div>
+          <button type="button" data-action="toggle" aria-expanded="${open}" aria-controls="vp-${id}"
+            class="prow-toggle inline-flex items-center gap-1.5 bg-white text-brand-pink border border-pink-200 hover:bg-pink-100 text-[11px] font-bold px-3 py-1.5 rounded-full transition whitespace-nowrap">
+            Kelola Varian (${variants.length}) <i class="fa-solid fa-chevron-down prow-chevron text-[10px]"></i>
+          </button>
         </div>
       </td>
-      <td class="p-3 text-center whitespace-nowrap space-x-2">
-        <button data-action="edit" class="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
-        <button data-action="delete" class="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+      <td class="p-3 align-middle text-center whitespace-nowrap space-x-2">
+        <button type="button" data-action="edit" class="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+        <button type="button" data-action="delete" class="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>
+    <tr class="vp-row${open ? ' is-open' : ''}" data-id="${id}">
+      <td colspan="6">
+        <div class="vp-wrap${open ? ' is-open' : ''}" id="vp-${id}" role="region" aria-label="Kelola varian ${title}">
+          <div class="vp-inner">
+            <div class="vp-content">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <h4 class="font-heading text-sm font-bold text-brand-pink min-w-0 truncate">Kelola Varian &ndash; ${title}</h4>
+                <button type="button" data-action="close" class="flex-none inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 hover:text-brand-pink bg-white border border-pink-200 px-2.5 py-1 rounded-full">
+                  <i class="fa-solid fa-chevron-up text-[10px]"></i> Tutup
+                </button>
+              </div>
+              <div class="vp-grid">${items}</div>
+              <div class="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-pink-200">
+                <span class="text-xs font-bold text-gray-700">Total stok seluruh varian: <span data-role="panel-total" class="text-brand-pink">${total}</span></span>
+                <button type="button" data-action="close" class="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-brand-pink hover:bg-brand-pinkHover px-3 py-1.5 rounded-full">
+                  <i class="fa-solid fa-chevron-up text-[10px]"></i> Tutup Varian
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </td>
     </tr>`;
-  }).join('');
 
-  attachImgFallback(tbody, 'https://placehold.co/100x100/FFF0F5/E12A5E?text=YN');
+  const [main, panel] = tmp.children;
+  attachImgFallback(main, 'https://placehold.co/100x100/FFF0F5/E12A5E?text=YN');
+  return { sig: structureSig(p), main, panel };
 }
 
-async function updateStockInline(id, idx, value) {
+// Perbarui angka saja (tanpa mengganti elemen). Input yang sedang diketik tidak ditimpa.
+function patchRows(p, entry) {
+  const variants = adminVariants(p);
+  const total = totalStock(p);
+
+  const totalEl = entry.main.querySelector('[data-role="total"]');
+  totalEl.textContent = `Total Stok: ${total}`;
+  totalEl.classList.toggle('text-red-600', total <= 0);
+  totalEl.classList.toggle('text-gray-800', total > 0);
+  entry.panel.querySelector('[data-role="panel-total"]').textContent = total;
+
+  entry.panel.querySelectorAll('input[data-idx]').forEach((input) => {
+    const qty = variantStock(variants[Number(input.dataset.idx)], p);
+    if (document.activeElement !== input) input.value = qty;
+    input.closest('.vp-item').classList.toggle('is-out', qty <= 0);
+  });
+}
+
+function setExpanded(id, open) {
+  if (open) expandedIds.add(id); else expandedIds.delete(id);
+  const entry = rowCache.get(id);
+  if (!entry) return;
+  entry.main.classList.toggle('is-open', open);
+  entry.panel.classList.toggle('is-open', open);
+  entry.panel.querySelector('.vp-wrap').classList.toggle('is-open', open);
+  entry.main.querySelector('[data-action="toggle"]').setAttribute('aria-expanded', String(open));
+  if (!open) entry.main.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function renderTable() {
+  const tbody = $('adminProductTable');
+  $('seedBox').classList.toggle('hidden', state.products.length > 0);
+
+  const liveIds = new Set(state.products.map((p) => p.id));
+  for (const [id, entry] of rowCache) {
+    if (!liveIds.has(id)) {
+      entry.main.remove();
+      entry.panel.remove();
+      rowCache.delete(id);
+      expandedIds.delete(id);
+    }
+  }
+
+  const wanted = [];
+  state.products.forEach((p) => {
+    let entry = rowCache.get(p.id);
+    if (entry && entry.sig === structureSig(p)) {
+      patchRows(p, entry);
+    } else {
+      if (entry) { entry.main.remove(); entry.panel.remove(); }
+      entry = buildRows(p);
+      rowCache.set(p.id, entry);
+    }
+    wanted.push(entry.main, entry.panel);
+  });
+
+  // Susun urutan tanpa memindahkan elemen yang sudah benar (menjaga fokus input)
+  let ref = tbody.firstElementChild;
+  wanted.forEach((node) => {
+    if (node === ref) ref = ref.nextElementSibling;
+    else tbody.insertBefore(node, ref);
+  });
+  while (ref) { const next = ref.nextElementSibling; ref.remove(); ref = next; }
+}
+
+/**
+ * Simpan stok satu varian. Memakai transaksi Firestore: data dibaca ulang dari server,
+ * hanya varian yang dipilih yang diubah, lalu total stok dihitung ulang dari semua varian.
+ */
+async function saveVariantStock(id, idx, input) {
   const p = state.products.find((x) => x.id === id);
-  if (!p) return;
-  const stock = Math.max(0, parseInt(value, 10) || 0);
-  const variants = adminVariants(p).map((v, i) => ({
-    name: v.name,
-    img: v.img,
-    stock: i === idx ? stock : variantStock(v, p),
-  }));
-  const total = variants.reduce((sum, v) => sum + v.stock, 0);
+  const current = p && adminVariants(p)[idx];
+  if (!current) return;
+
+  let qty = parseInt(input.value, 10);
+  if (!Number.isFinite(qty) || qty < 0) qty = 0;   // tidak boleh negatif / kosong
+  input.value = qty;
+  if (qty === variantStock(current, p)) return;     // tidak ada perubahan: tidak perlu menulis
+
+  input.classList.add('is-saving');
   try {
-    await updateDoc(doc(db, PRODUCTS_COL, id), { variants, stock: total, updatedAt: serverTimestamp() });
-    showToast('Stok berhasil diperbarui!');
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, PRODUCTS_COL, id);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw Object.assign(new Error('missing'), { code: 'app/missing' });
+
+      const data = snap.data();
+      const list = adminVariants(data);
+      if (!list[idx] || list[idx].name !== current.name) {
+        throw Object.assign(new Error('stale'), { code: 'app/stale' });
+      }
+      const variants = list.map((v, i) => ({
+        name: v.name,
+        img: v.img,
+        stock: i === idx ? qty : variantStock(v, data),
+      }));
+      tx.update(ref, {
+        variants,
+        stock: variants.reduce((sum, v) => sum + v.stock, 0),
+        updatedAt: serverTimestamp(),
+      });
+    });
+    showToast(`Stok "${current.name}" diperbarui!`);
   } catch (err) {
     console.error(err);
-    showToast(friendlyError(err), 'error');
+    input.value = variantStock(current, p);
+    showToast(
+      err.code === 'app/stale' || err.code === 'app/missing'
+        ? 'Data produk sudah berubah. Muat ulang halaman lalu coba lagi.'
+        : friendlyError(err),
+      'error'
+    );
+  } finally {
+    input.classList.remove('is-saving');
   }
 }
 
@@ -183,6 +331,7 @@ async function deleteProduct(id) {
   if (!confirm(`Hapus produk "${p?.title ?? ''}"?`)) return;
   try {
     await deleteDoc(doc(db, PRODUCTS_COL, id));
+    deleteDoc(doc(db, STATS_COL, id)).catch(() => {}); // statistik produk ikut dibersihkan
     showToast('Produk berhasil dihapus!');
   } catch (err) {
     console.error(err);
@@ -521,13 +670,16 @@ function init() {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const id = btn.closest('tr').dataset.id;
-    if (btn.dataset.action === 'edit') openProductForm(state.products.find((p) => p.id === id));
-    if (btn.dataset.action === 'delete') deleteProduct(id);
+    switch (btn.dataset.action) {
+      case 'edit': openProductForm(state.products.find((p) => p.id === id)); break;
+      case 'delete': deleteProduct(id); break;
+      case 'toggle': setExpanded(id, !expandedIds.has(id)); break;
+      case 'close': setExpanded(id, false); break;
+    }
   });
   tbody.addEventListener('change', (e) => {
-    if (e.target.dataset.action === 'stock') {
-      updateStockInline(e.target.closest('tr').dataset.id, Number(e.target.dataset.idx), e.target.value);
-    }
+    const input = e.target.closest('input[data-action="stock"]');
+    if (input) saveVariantStock(input.closest('tr').dataset.id, Number(input.dataset.idx), input);
   });
 
   enableModalDismiss(['productFormModal', 'storeSettingsModal', 'brandModal']);
